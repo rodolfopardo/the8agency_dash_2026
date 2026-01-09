@@ -110,8 +110,6 @@ const DataManager = {
         const headers = table.cols.map(col => (col.label || '').trim());
         const rows = [];
 
-        console.log('Google Sheets headers:', headers);
-
         table.rows.forEach(row => {
             if (!row.c) return;
             const rowData = {};
@@ -127,11 +125,6 @@ const DataManager = {
             });
             rows.push(rowData);
         });
-
-        // Log first row to debug
-        if (rows.length > 0) {
-            console.log('First row data:', rows[0]);
-        }
 
         return rows;
     },
@@ -171,26 +164,8 @@ const DataManager = {
             const startDateStr = this.getColumnValue(row, ['Fecha de Inicio', 'Fecha Inicio', 'Start Date', 'Inicio', 'FechaInicio']);
             const endDateStr = this.getColumnValue(row, ['Fecha Finalización', 'Fecha Finalizacion', 'Fecha Fin', 'End Date', 'Fin', 'FechaFin']);
 
-            // Debug: log date values for first few projects
-            if (index < 3) {
-                console.log(`Project ${index}: ${projectName}`);
-                console.log(`  Raw start date: "${startDateStr}"`);
-                console.log(`  Raw end date: "${endDateStr}"`);
-            }
-
             const startDate = this.parseDate(startDateStr);
             const endDate = this.parseDate(endDateStr);
-
-            // Debug: log parsing results for first few
-            if (index < 3) {
-                console.log(`  Parsed start: ${startDate}`);
-                console.log(`  Parsed end: ${endDate}`);
-            }
-
-            // Debug: log if dates fail to parse
-            if (startDateStr && !startDate) {
-                console.warn(`Failed to parse start date: "${startDateStr}" for project: ${projectName}`);
-            }
 
             const project = {
                 id: index,
@@ -226,7 +201,6 @@ const DataManager = {
         this.types = Array.from(this.types);
         this.projectsByClient = this.groupByClient(this.projects);
 
-        console.log(`Loaded ${this.projects.length} projects, ${this.teams.length} teams, ${this.clients.length} clients`);
     },
 
     parseDate(dateStr) {
