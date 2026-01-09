@@ -39,6 +39,17 @@ const GanttChart = {
         this.filteredData = data.projectsByClient;
         // Expand all clients by default
         Object.keys(this.filteredData).forEach(client => this.expandedClients.add(client));
+
+        // Debug: log projects with dates
+        console.log('GanttChart: Total projects by client:', Object.keys(this.filteredData).length);
+        Object.entries(this.filteredData).forEach(([client, projects]) => {
+            const withDates = projects.filter(p => p.startDate);
+            console.log(`  ${client}: ${projects.length} projects, ${withDates.length} with dates`);
+            if (withDates.length === 0 && projects.length > 0) {
+                console.log('    Sample project:', projects[0]);
+            }
+        });
+
         this.render();
     },
 

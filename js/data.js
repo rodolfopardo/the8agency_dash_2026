@@ -107,21 +107,51 @@ const DataManager = {
     },
 
     parseGoogleSheetsData(table) {
-        const headers = table.cols.map(col => col.label || '');
+        const headers = table.cols.map(col => (col.label || '').trim());
         const rows = [];
+
+        console.log('Google Sheets headers:', headers);
 
         table.rows.forEach(row => {
             if (!row.c) return;
             const rowData = {};
             row.c.forEach((cell, index) => {
                 if (headers[index]) {
-                    rowData[headers[index]] = cell ? (cell.f || cell.v || '') : '';
+                    // For dates, prefer formatted value (f), fallback to raw value (v)
+                    let value = '';
+                    if (cell) {
+                        value = cell.f !== undefined && cell.f !== null ? cell.f : (cell.v || '');
+                    }
+                    rowData[headers[index]] = value;
                 }
             });
             rows.push(rowData);
         });
 
+        // Log first row to debug
+        if (rows.length > 0) {
+            console.log('First row data:', rows[0]);
+        }
+
         return rows;
+    },
+
+    // Helper to find column value with flexible matching
+    getColumnValue(row, possibleNames) {
+        for (const name of possibleNames) {
+            if (row[name] !== undefined && row[name] !== '') {
+                return row[name];
+            }
+        }
+        // Try partial match
+        const keys = Object.keys(row);
+        for (const name of possibleNames) {
+            const found = keys.find(k => k.toLowerCase().includes(name.toLowerCase()));
+            if (found && row[found] !== '') {
+                return row[found];
+            }
+        }
+        return '';
     },
 
     processData(data) {
@@ -133,22 +163,33 @@ const DataManager = {
         const teamColumns = ['Equipo Content', 'Equipo Diseño', 'Equipo Video', 'Equipo Dev', 'Equipo Traducciones', 'Equipo Social Media', 'Equipo Field Marketing', 'Equipo Strategy'];
 
         data.forEach((row, index) => {
-            if (!row['Cliente'] && !row['Proyecto']) return;
+            const client = this.getColumnValue(row, ['Cliente', 'Client', 'cliente']);
+            const projectName = this.getColumnValue(row, ['Proyecto', 'Project', 'proyecto', 'Nombre']);
 
-            const startDate = this.parseDate(row['Fecha de Inicio']);
-            const endDate = this.parseDate(row['Fecha Finalización']);
+            if (!client && !projectName) return;
+
+            const startDateStr = this.getColumnValue(row, ['Fecha de Inicio', 'Fecha Inicio', 'Start Date', 'Inicio', 'FechaInicio']);
+            const endDateStr = this.getColumnValue(row, ['Fecha Finalización', 'Fecha Finalizacion', 'Fecha Fin', 'End Date', 'Fin', 'FechaFin']);
+
+            const startDate = this.parseDate(startDateStr);
+            const endDate = this.parseDate(endDateStr);
+
+            // Debug: log if dates fail to parse
+            if (startDateStr && !startDate) {
+                console.warn(`Failed to parse start date: "${startDateStr}" for project: ${projectName}`);
+            }
 
             const project = {
                 id: index,
-                client: row['Cliente'] || '',
-                name: row['Proyecto'] || '',
-                type: row['Línea / Tipo'] || '',
-                phase: row['Fase'] || '',
-                tasks: row['Tareas'] || '',
+                client: client,
+                name: projectName,
+                type: this.getColumnValue(row, ['Línea / Tipo', 'Linea / Tipo', 'Tipo', 'Type', 'Línea']),
+                phase: this.getColumnValue(row, ['Fase', 'Phase', 'Estado']),
+                tasks: this.getColumnValue(row, ['Tareas', 'Tasks', 'Descripción']),
                 startDate: startDate,
                 endDate: endDate,
-                confirmedDate: this.parseDate(row['Fecha confirmada']),
-                clickUpLink: row['Link Click Up'] || '',
+                confirmedDate: this.parseDate(this.getColumnValue(row, ['Fecha confirmada', 'Key Date', 'Confirmada'])),
+                clickUpLink: this.getColumnValue(row, ['Link Click Up', 'ClickUp', 'Link']),
                 teams: []
             };
 
@@ -180,17 +221,34 @@ const DataManager = {
         dateStr = String(dateStr).trim();
         if (!dateStr) return null;
 
-        // Format: "1-Jan-2026" or "15-Feb-2026"
-        const monthMap = { 'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11 };
+        // Format 1: Google Sheets "Date(2026,0,1)" format
+        const dateMatch = dateStr.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})\)$/);
+        if (dateMatch) {
+            const year = parseInt(dateMatch[1]);
+            const month = parseInt(dateMatch[2]); // Already 0-indexed
+            const day = parseInt(dateMatch[3]);
+            return new Date(year, month, day);
+        }
 
-        const match = dateStr.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
-        if (match) {
-            const day = parseInt(match[1]);
-            const month = monthMap[match[2]];
-            const year = parseInt(match[3]);
+        // Format 2: "1-Jan-2026" or "15-Feb-2026"
+        const monthMap = { 'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11 };
+        const textMatch = dateStr.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+        if (textMatch) {
+            const day = parseInt(textMatch[1]);
+            const month = monthMap[textMatch[2]];
+            const year = parseInt(textMatch[3]);
             if (month !== undefined) {
                 return new Date(year, month, day);
             }
+        }
+
+        // Format 3: "DD/MM/YYYY" or "D/M/YYYY"
+        const slashMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (slashMatch) {
+            const day = parseInt(slashMatch[1]);
+            const month = parseInt(slashMatch[2]) - 1;
+            const year = parseInt(slashMatch[3]);
+            return new Date(year, month, day);
         }
 
         // Fallback: try native parsing
