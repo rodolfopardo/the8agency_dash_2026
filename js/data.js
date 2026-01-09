@@ -498,6 +498,7 @@ const DataManager = {
      */
     filterProjects(filters = {}) {
         let filtered = [...this.projects];
+        console.log('filterProjects called with:', filters, 'Total projects:', this.projects.length);
 
         if (filters.client) {
             filtered = filtered.filter(p => p.client === filters.client);
@@ -523,6 +524,7 @@ const DataManager = {
             });
         }
 
+        console.log('Filtered projects:', filtered.length);
         return filtered;
     },
 

@@ -1,15 +1,15 @@
 /**
  * 8Agency Dashboard - Gantt Chart with D3.js
- * Hierarchical, expandable Gantt chart
+ * Professional hierarchical Gantt with colored bars
  */
 
 const GanttChart = {
     // Configuration
     config: {
-        rowHeight: 44,
-        labelWidth: 250,
-        monthWidth: 100,
-        barHeight: 24,
+        rowHeight: 40,
+        labelWidth: 280,
+        barHeight: 22,
+        subBarHeight: 16,
         padding: 4,
         year: 2026
     },
@@ -18,14 +18,22 @@ const GanttChart = {
     expandedClients: new Set(),
     expandedProjects: new Set(),
     zoomLevel: 100,
-    viewMode: 'month', // 'month' or 'week'
+
+    // Colors for clients/projects
+    projectColors: [
+        '#f59e0b', // amber
+        '#22c55e', // green
+        '#3b82f6', // blue
+        '#ec4899', // pink
+        '#8b5cf6', // purple
+        '#14b8a6', // teal
+        '#f97316', // orange
+        '#06b6d4', // cyan
+    ],
 
     // Data
     data: null,
     filteredData: null,
-
-    // D3 elements
-    svg: null,
     container: null,
 
     /**
@@ -34,8 +42,6 @@ const GanttChart = {
     init(containerId) {
         this.container = document.getElementById(containerId);
         if (!this.container) return;
-
-        // Setup zoom controls
         this.setupControls();
     },
 
@@ -45,7 +51,6 @@ const GanttChart = {
     setupControls() {
         const zoomIn = document.getElementById('zoomIn');
         const zoomOut = document.getElementById('zoomOut');
-        const viewBtns = document.querySelectorAll('.btn-view');
 
         if (zoomIn) {
             zoomIn.addEventListener('click', () => this.zoom(10));
@@ -53,15 +58,6 @@ const GanttChart = {
         if (zoomOut) {
             zoomOut.addEventListener('click', () => this.zoom(-10));
         }
-
-        viewBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                viewBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.viewMode = btn.dataset.view;
-                this.render();
-            });
-        });
     },
 
     /**
@@ -110,41 +106,46 @@ const GanttChart = {
     },
 
     /**
-     * Render the Gantt chart
+     * Main render function
      */
     render() {
         if (!this.container || !this.filteredData) return;
 
-        // Clear container
         this.container.innerHTML = '';
 
-        // Calculate dimensions
         const months = this.getMonths();
-        const rows = this.buildRows();
-        const monthWidth = (this.config.monthWidth * this.zoomLevel) / 100;
-        const totalWidth = this.config.labelWidth + (months.length * monthWidth);
-        const totalHeight = (rows.length + 1) * this.config.rowHeight;
+        const monthWidth = (80 * this.zoomLevel) / 100;
+        const timelineWidth = months.length * monthWidth;
+        const totalWidth = this.config.labelWidth + timelineWidth;
 
-        // Create wrapper
+        // Create main wrapper
         const wrapper = document.createElement('div');
         wrapper.className = 'gantt-wrapper';
-        wrapper.style.minWidth = `${totalWidth}px`;
+        wrapper.style.cssText = `min-width: ${totalWidth}px; position: relative;`;
 
-        // Create SVG
-        this.svg = d3.select(wrapper)
-            .append('svg')
-            .attr('width', totalWidth)
-            .attr('height', totalHeight)
-            .attr('class', 'gantt-svg');
+        // Build rows data
+        const rows = this.buildRows();
+        const totalHeight = (rows.length + 1) * this.config.rowHeight;
 
-        // Render header
-        this.renderHeader(months, monthWidth);
+        // Create header
+        const header = this.createHeader(months, monthWidth, timelineWidth);
+        wrapper.appendChild(header);
 
-        // Render rows
-        this.renderRows(rows, months, monthWidth);
+        // Create body
+        const body = document.createElement('div');
+        body.className = 'gantt-body';
+        body.style.cssText = `position: relative;`;
 
-        // Render today line
-        this.renderTodayLine(months, monthWidth);
+        // Render each row
+        rows.forEach((row, index) => {
+            const rowEl = this.createRow(row, index, months, monthWidth, timelineWidth);
+            body.appendChild(rowEl);
+        });
+
+        wrapper.appendChild(body);
+
+        // Add today marker
+        this.addTodayMarker(wrapper, months, monthWidth);
 
         this.container.appendChild(wrapper);
     },
@@ -153,19 +154,13 @@ const GanttChart = {
      * Get months for timeline
      */
     getMonths() {
-        const months = [];
         const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
-        for (let i = 0; i < 12; i++) {
-            months.push({
-                index: i,
-                name: monthNames[i],
-                start: new Date(this.config.year, i, 1),
-                end: new Date(this.config.year, i + 1, 0)
-            });
-        }
-
-        return months;
+        return monthNames.map((name, index) => ({
+            index,
+            name,
+            start: new Date(this.config.year, index, 1),
+            end: new Date(this.config.year, index + 1, 0)
+        }));
     },
 
     /**
@@ -173,28 +168,36 @@ const GanttChart = {
      */
     buildRows() {
         const rows = [];
+        let colorIndex = 0;
 
         Object.entries(this.filteredData).forEach(([client, projects]) => {
-            // Add client row
+            const clientColor = this.projectColors[colorIndex % this.projectColors.length];
+            colorIndex++;
+
+            // Client row
             rows.push({
                 type: 'client',
                 name: client,
                 expanded: this.expandedClients.has(client),
-                projectCount: projects.length
+                projectCount: projects.length,
+                color: clientColor
             });
 
-            // Add project rows if expanded
+            // Project rows if expanded
             if (this.expandedClients.has(client)) {
-                projects.forEach(project => {
+                projects.forEach((project, pIndex) => {
+                    const projectColor = this.lightenColor(clientColor, pIndex * 10);
+
                     rows.push({
                         type: 'project',
                         ...project,
-                        expanded: this.expandedProjects.has(project.id)
+                        expanded: this.expandedProjects.has(project.id),
+                        color: projectColor,
+                        parentColor: clientColor
                     });
 
-                    // Add phase rows if project is expanded
+                    // Phase rows if project expanded
                     if (this.expandedProjects.has(project.id)) {
-                        // Determine phases based on data
                         const phases = this.getProjectPhases(project);
                         phases.forEach(phase => {
                             rows.push({
@@ -212,371 +215,387 @@ const GanttChart = {
     },
 
     /**
-     * Get phases for a project
+     * Create header with months
      */
-    getProjectPhases(project) {
-        const phases = [];
+    createHeader(months, monthWidth, timelineWidth) {
+        const header = document.createElement('div');
+        header.className = 'gantt-header';
+        header.style.cssText = `
+            display: flex;
+            background: #334155;
+            border-bottom: 2px solid #475569;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        `;
 
-        if (project.startDate) {
-            // Pre-production phase (first third of project duration)
-            const duration = project.endDate ?
-                (project.endDate - project.startDate) / (1000 * 60 * 60 * 24) : 30;
+        // Label column
+        const labelCol = document.createElement('div');
+        labelCol.className = 'gantt-header-label';
+        labelCol.style.cssText = `
+            width: ${this.config.labelWidth}px;
+            min-width: ${this.config.labelWidth}px;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #f8fafc;
+            border-right: 1px solid #475569;
+        `;
+        labelCol.textContent = 'Proyecto';
+        header.appendChild(labelCol);
 
-            const preEnd = new Date(project.startDate);
-            preEnd.setDate(preEnd.getDate() + Math.floor(duration * 0.3));
+        // Timeline columns
+        const timeline = document.createElement('div');
+        timeline.style.cssText = `
+            display: flex;
+            flex: 1;
+        `;
 
-            phases.push({
-                name: 'Pre-producción',
-                phaseType: 'pre-prod',
-                startDate: project.startDate,
-                endDate: preEnd
-            });
-
-            // Key date (middle)
-            if (project.confirmedDate) {
-                phases.push({
-                    name: 'Key Date',
-                    phaseType: 'key-date',
-                    startDate: project.confirmedDate,
-                    endDate: project.confirmedDate
-                });
-            } else {
-                const keyStart = new Date(preEnd);
-                keyStart.setDate(keyStart.getDate() + 1);
-                const keyEnd = new Date(keyStart);
-                keyEnd.setDate(keyEnd.getDate() + Math.floor(duration * 0.2));
-
-                phases.push({
-                    name: 'Key Date',
-                    phaseType: 'key-date',
-                    startDate: keyStart,
-                    endDate: keyEnd
-                });
-            }
-
-            // Post-production
-            if (project.endDate) {
-                const postStart = new Date(project.endDate);
-                postStart.setDate(postStart.getDate() - Math.floor(duration * 0.3));
-
-                phases.push({
-                    name: 'Post-producción',
-                    phaseType: 'post-prod',
-                    startDate: postStart,
-                    endDate: project.endDate
-                });
-            }
-        }
-
-        return phases;
-    },
-
-    /**
-     * Render header
-     */
-    renderHeader(months, monthWidth) {
-        const headerGroup = this.svg.append('g').attr('class', 'gantt-header-group');
-
-        // Background
-        headerGroup.append('rect')
-            .attr('width', '100%')
-            .attr('height', this.config.rowHeight)
-            .attr('fill', '#334155');
-
-        // Label header
-        headerGroup.append('text')
-            .attr('x', 16)
-            .attr('y', this.config.rowHeight / 2)
-            .attr('dy', '0.35em')
-            .attr('fill', '#f8fafc')
-            .attr('font-size', '14px')
-            .attr('font-weight', '600')
-            .text('Proyecto');
-
-        // Month headers
         const currentMonth = new Date().getMonth();
 
         months.forEach((month, i) => {
-            const x = this.config.labelWidth + (i * monthWidth);
-
-            // Month background (highlight current)
-            if (month.index === currentMonth) {
-                headerGroup.append('rect')
-                    .attr('x', x)
-                    .attr('y', 0)
-                    .attr('width', monthWidth)
-                    .attr('height', this.config.rowHeight)
-                    .attr('fill', 'rgba(99, 102, 241, 0.2)');
-            }
-
-            // Vertical line
-            headerGroup.append('line')
-                .attr('x1', x)
-                .attr('y1', 0)
-                .attr('x2', x)
-                .attr('y2', '100%')
-                .attr('stroke', '#475569')
-                .attr('stroke-width', 1);
-
-            // Month name
-            headerGroup.append('text')
-                .attr('x', x + monthWidth / 2)
-                .attr('y', this.config.rowHeight / 2)
-                .attr('dy', '0.35em')
-                .attr('text-anchor', 'middle')
-                .attr('fill', month.index === currentMonth ? '#818cf8' : '#94a3b8')
-                .attr('font-size', '12px')
-                .attr('font-weight', '500')
-                .text(month.name);
+            const monthCol = document.createElement('div');
+            const isCurrent = month.index === currentMonth;
+            monthCol.style.cssText = `
+                width: ${monthWidth}px;
+                min-width: ${monthWidth}px;
+                padding: 12px 4px;
+                text-align: center;
+                font-size: 12px;
+                font-weight: 500;
+                color: ${isCurrent ? '#818cf8' : '#94a3b8'};
+                border-right: 1px solid #475569;
+                background: ${isCurrent ? 'rgba(99, 102, 241, 0.15)' : 'transparent'};
+            `;
+            monthCol.textContent = month.name;
+            timeline.appendChild(monthCol);
         });
+
+        header.appendChild(timeline);
+        return header;
     },
 
     /**
-     * Render rows
+     * Create a single row
      */
-    renderRows(rows, months, monthWidth) {
-        const self = this;
+    createRow(row, index, months, monthWidth, timelineWidth) {
+        const rowEl = document.createElement('div');
+        rowEl.className = `gantt-row gantt-row-${row.type}`;
+        rowEl.style.cssText = `
+            display: flex;
+            border-bottom: 1px solid #334155;
+            min-height: ${this.config.rowHeight}px;
+            background: ${row.type === 'client' ? '#1e293b' : '#0f172a'};
+        `;
 
-        rows.forEach((row, index) => {
-            const y = (index + 1) * this.config.rowHeight;
-            const rowGroup = this.svg.append('g')
-                .attr('class', `gantt-row-group gantt-row-${row.type}`)
-                .attr('transform', `translate(0, ${y})`);
+        // Label section
+        const label = this.createLabel(row);
+        rowEl.appendChild(label);
 
-            // Row background
-            rowGroup.append('rect')
-                .attr('width', '100%')
-                .attr('height', this.config.rowHeight)
-                .attr('fill', row.type === 'client' ? '#1e293b' :
-                    row.type === 'project' ? '#0f172a' : 'transparent')
-                .attr('class', 'row-bg');
+        // Timeline section with bar
+        const timeline = this.createTimeline(row, months, monthWidth, timelineWidth);
+        rowEl.appendChild(timeline);
 
-            // Label background
-            rowGroup.append('rect')
-                .attr('width', this.config.labelWidth)
-                .attr('height', this.config.rowHeight)
-                .attr('fill', row.type === 'client' ? '#1e293b' : '#334155');
-
-            // Row border
-            rowGroup.append('line')
-                .attr('x1', 0)
-                .attr('x2', '100%')
-                .attr('y1', this.config.rowHeight)
-                .attr('y2', this.config.rowHeight)
-                .attr('stroke', '#334155')
-                .attr('stroke-width', 1);
-
-            // Render based on row type
-            if (row.type === 'client') {
-                this.renderClientRow(rowGroup, row, months, monthWidth);
-            } else if (row.type === 'project') {
-                this.renderProjectRow(rowGroup, row, months, monthWidth);
-            } else if (row.type === 'phase') {
-                this.renderPhaseRow(rowGroup, row, months, monthWidth);
-            }
-
-            // Grid lines for months
-            months.forEach((month, i) => {
-                const x = this.config.labelWidth + (i * monthWidth);
-                rowGroup.append('line')
-                    .attr('x1', x)
-                    .attr('y1', 0)
-                    .attr('x2', x)
-                    .attr('y2', this.config.rowHeight)
-                    .attr('stroke', '#334155')
-                    .attr('stroke-width', 1)
-                    .attr('stroke-opacity', 0.5);
-            });
-        });
+        return rowEl;
     },
 
     /**
-     * Render client row
+     * Create label section of row
      */
-    renderClientRow(group, row, months, monthWidth) {
-        const self = this;
+    createLabel(row) {
+        const label = document.createElement('div');
+        label.className = 'gantt-label';
 
-        // Expand/collapse button
-        const expandBtn = group.append('g')
-            .attr('class', 'expand-btn')
-            .attr('transform', `translate(12, ${this.config.rowHeight / 2})`)
-            .style('cursor', 'pointer');
+        let paddingLeft = 16;
+        if (row.type === 'project') paddingLeft = 32;
+        if (row.type === 'phase') paddingLeft = 52;
 
-        expandBtn.append('path')
-            .attr('d', row.expanded ? 'M6 9l6 6 6-6' : 'M9 18l6-6-6-6')
-            .attr('stroke', '#94a3b8')
-            .attr('stroke-width', 2)
-            .attr('fill', 'none')
-            .attr('transform', 'translate(-6, -6)');
+        label.style.cssText = `
+            width: ${this.config.labelWidth}px;
+            min-width: ${this.config.labelWidth}px;
+            padding: 8px 12px 8px ${paddingLeft}px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #334155;
+            border-right: 1px solid #475569;
+        `;
 
-        expandBtn.on('click', function () {
-            if (self.expandedClients.has(row.name)) {
-                self.expandedClients.delete(row.name);
-            } else {
-                self.expandedClients.add(row.name);
-            }
-            self.render();
-        });
-
-        // Client name
-        group.append('text')
-            .attr('x', 36)
-            .attr('y', this.config.rowHeight / 2)
-            .attr('dy', '0.35em')
-            .attr('fill', '#f8fafc')
-            .attr('font-size', '14px')
-            .attr('font-weight', '600')
-            .text(row.name);
-
-        // Project count badge
-        group.append('rect')
-            .attr('x', this.config.labelWidth - 50)
-            .attr('y', (this.config.rowHeight - 20) / 2)
-            .attr('width', 36)
-            .attr('height', 20)
-            .attr('rx', 10)
-            .attr('fill', '#6366f1');
-
-        group.append('text')
-            .attr('x', this.config.labelWidth - 32)
-            .attr('y', this.config.rowHeight / 2)
-            .attr('dy', '0.35em')
-            .attr('text-anchor', 'middle')
-            .attr('fill', 'white')
-            .attr('font-size', '11px')
-            .attr('font-weight', '600')
-            .text(row.projectCount);
-    },
-
-    /**
-     * Render project row
-     */
-    renderProjectRow(group, row, months, monthWidth) {
-        const self = this;
-
-        // Expand button for phases
-        const expandBtn = group.append('g')
-            .attr('class', 'expand-btn')
-            .attr('transform', `translate(28, ${this.config.rowHeight / 2})`)
-            .style('cursor', 'pointer');
-
-        expandBtn.append('path')
-            .attr('d', row.expanded ? 'M6 9l6 6 6-6' : 'M9 18l6-6-6-6')
-            .attr('stroke', '#64748b')
-            .attr('stroke-width', 2)
-            .attr('fill', 'none')
-            .attr('transform', 'translate(-6, -6) scale(0.8)');
-
-        expandBtn.on('click', function () {
-            if (self.expandedProjects.has(row.id)) {
-                self.expandedProjects.delete(row.id);
-            } else {
-                self.expandedProjects.add(row.id);
-            }
-            self.render();
-        });
-
-        // Project name
-        group.append('text')
-            .attr('x', 48)
-            .attr('y', this.config.rowHeight / 2)
-            .attr('dy', '0.35em')
-            .attr('fill', '#f8fafc')
-            .attr('font-size', '13px')
-            .attr('font-weight', '500')
-            .text(this.truncateText(row.name, 22));
-
-        // Render project bar
-        if (row.startDate) {
-            const barInfo = this.calculateBarPosition(row.startDate, row.endDate || row.startDate, months, monthWidth);
-
-            if (barInfo) {
-                const bar = group.append('rect')
-                    .attr('x', barInfo.x)
-                    .attr('y', (this.config.rowHeight - this.config.barHeight) / 2)
-                    .attr('width', Math.max(barInfo.width, 8))
-                    .attr('height', this.config.barHeight)
-                    .attr('rx', 4)
-                    .attr('class', 'gantt-bar project-bar')
-                    .style('cursor', 'pointer');
-
-                // Gradient fill
-                const gradientId = `gradient-${row.id}`;
-                const gradient = this.svg.append('defs')
-                    .append('linearGradient')
-                    .attr('id', gradientId)
-                    .attr('x1', '0%')
-                    .attr('x2', '100%');
-
-                gradient.append('stop')
-                    .attr('offset', '0%')
-                    .attr('stop-color', '#6366f1');
-
-                gradient.append('stop')
-                    .attr('offset', '100%')
-                    .attr('stop-color', '#8b5cf6');
-
-                bar.attr('fill', `url(#${gradientId})`);
-
-                // Click to show details
-                bar.on('click', () => {
-                    this.showProjectDetails(row);
-                });
-
-                // Tooltip on hover
-                bar.append('title')
-                    .text(`${row.name}\n${this.formatDate(row.startDate)} - ${this.formatDate(row.endDate)}`);
-            }
+        // Expand button for client/project
+        if (row.type === 'client' || row.type === 'project') {
+            const expandBtn = document.createElement('button');
+            expandBtn.style.cssText = `
+                background: none;
+                border: none;
+                color: #94a3b8;
+                cursor: pointer;
+                padding: 2px;
+                display: flex;
+                align-items: center;
+                transition: transform 0.2s;
+                transform: rotate(${row.expanded ? '90deg' : '0deg'});
+            `;
+            expandBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18l6-6-6-6"/>
+                </svg>
+            `;
+            expandBtn.onclick = () => {
+                if (row.type === 'client') {
+                    if (this.expandedClients.has(row.name)) {
+                        this.expandedClients.delete(row.name);
+                    } else {
+                        this.expandedClients.add(row.name);
+                    }
+                } else {
+                    if (this.expandedProjects.has(row.id)) {
+                        this.expandedProjects.delete(row.id);
+                    } else {
+                        this.expandedProjects.add(row.id);
+                    }
+                }
+                this.render();
+            };
+            label.appendChild(expandBtn);
         }
-    },
 
-    /**
-     * Render phase row
-     */
-    renderPhaseRow(group, row, months, monthWidth) {
-        // Phase name
-        group.append('text')
-            .attr('x', 68)
-            .attr('y', this.config.rowHeight / 2)
-            .attr('dy', '0.35em')
-            .attr('fill', '#94a3b8')
-            .attr('font-size', '12px')
-            .text(row.name);
-
-        // Render phase bar
-        if (row.startDate) {
-            const barInfo = this.calculateBarPosition(row.startDate, row.endDate || row.startDate, months, monthWidth);
-
-            if (barInfo) {
-                const barHeight = 18;
-                const bar = group.append('rect')
-                    .attr('x', barInfo.x)
-                    .attr('y', (this.config.rowHeight - barHeight) / 2)
-                    .attr('width', Math.max(barInfo.width, 6))
-                    .attr('height', barHeight)
-                    .attr('rx', 3)
-                    .attr('class', `gantt-bar ${row.phaseType}`);
-
-                // Color based on phase type
-                const colors = {
-                    'pre-prod': '#3b82f6',
-                    'key-date': '#f59e0b',
-                    'post-prod': '#10b981'
-                };
-
-                bar.attr('fill', colors[row.phaseType] || '#6366f1');
-
-                // Tooltip
-                bar.append('title')
-                    .text(`${row.name}\n${this.formatDate(row.startDate)} - ${this.formatDate(row.endDate)}`);
-            }
+        // Color indicator
+        if (row.type !== 'phase') {
+            const colorDot = document.createElement('span');
+            colorDot.style.cssText = `
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: ${row.color || row.parentColor || '#6366f1'};
+                flex-shrink: 0;
+            `;
+            label.appendChild(colorDot);
         }
+
+        // Name
+        const nameEl = document.createElement('span');
+        nameEl.style.cssText = `
+            flex: 1;
+            font-size: ${row.type === 'client' ? '14px' : row.type === 'project' ? '13px' : '12px'};
+            font-weight: ${row.type === 'client' ? '600' : '500'};
+            color: ${row.type === 'phase' ? '#94a3b8' : '#f8fafc'};
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        `;
+        nameEl.textContent = row.name;
+        label.appendChild(nameEl);
+
+        // Project count badge for clients
+        if (row.type === 'client') {
+            const badge = document.createElement('span');
+            badge.style.cssText = `
+                background: #6366f1;
+                color: white;
+                font-size: 11px;
+                font-weight: 600;
+                padding: 2px 8px;
+                border-radius: 10px;
+            `;
+            badge.textContent = row.projectCount;
+            label.appendChild(badge);
+        }
+
+        return label;
     },
 
     /**
-     * Calculate bar position based on dates
+     * Create timeline section with bar
      */
-    calculateBarPosition(startDate, endDate, months, monthWidth) {
+    createTimeline(row, months, monthWidth, timelineWidth) {
+        const timeline = document.createElement('div');
+        timeline.style.cssText = `
+            flex: 1;
+            position: relative;
+            display: flex;
+        `;
+
+        // Grid lines
+        months.forEach((month, i) => {
+            const gridLine = document.createElement('div');
+            const isCurrent = month.index === new Date().getMonth();
+            gridLine.style.cssText = `
+                width: ${monthWidth}px;
+                min-width: ${monthWidth}px;
+                border-right: 1px solid #334155;
+                background: ${isCurrent ? 'rgba(99, 102, 241, 0.05)' : 'transparent'};
+            `;
+            timeline.appendChild(gridLine);
+        });
+
+        // Add bar if has dates
+        if (row.type === 'project' && row.startDate) {
+            const bar = this.createBar(row, months, monthWidth);
+            if (bar) timeline.appendChild(bar);
+        } else if (row.type === 'phase' && row.startDate) {
+            const bar = this.createPhaseBar(row, months, monthWidth);
+            if (bar) timeline.appendChild(bar);
+        } else if (row.type === 'client') {
+            // Create aggregated bar for client showing range of all projects
+            const clientProjects = this.filteredData[row.name] || [];
+            const bar = this.createClientBar(row, clientProjects, months, monthWidth);
+            if (bar) timeline.appendChild(bar);
+        }
+
+        return timeline;
+    },
+
+    /**
+     * Create bar for project
+     */
+    createBar(row, months, monthWidth) {
+        const pos = this.calculatePosition(row.startDate, row.endDate, months, monthWidth);
+        if (!pos) return null;
+
+        const bar = document.createElement('div');
+        bar.style.cssText = `
+            position: absolute;
+            left: ${pos.left}px;
+            width: ${Math.max(pos.width, 8)}px;
+            height: ${this.config.barHeight}px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, ${row.color} 0%, ${this.darkenColor(row.color, 15)} 100%);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            overflow: hidden;
+        `;
+
+        // Add label if bar is wide enough
+        if (pos.width > 60) {
+            const label = document.createElement('span');
+            label.style.cssText = `
+                font-size: 11px;
+                font-weight: 500;
+                color: white;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            `;
+            label.textContent = row.name;
+            bar.appendChild(label);
+        }
+
+        bar.onmouseenter = () => {
+            bar.style.transform = 'translateY(-50%) scale(1.02)';
+            bar.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+        };
+        bar.onmouseleave = () => {
+            bar.style.transform = 'translateY(-50%)';
+            bar.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+        };
+        bar.onclick = () => this.showProjectDetails(row);
+
+        // Tooltip
+        bar.title = `${row.name}\n${this.formatDate(row.startDate)} - ${this.formatDate(row.endDate)}`;
+
+        return bar;
+    },
+
+    /**
+     * Create aggregated bar for client
+     */
+    createClientBar(row, projects, months, monthWidth) {
+        // Find min start and max end dates
+        let minStart = null;
+        let maxEnd = null;
+
+        projects.forEach(p => {
+            if (p.startDate) {
+                if (!minStart || p.startDate < minStart) minStart = p.startDate;
+            }
+            if (p.endDate) {
+                if (!maxEnd || p.endDate > maxEnd) maxEnd = p.endDate;
+            }
+        });
+
+        if (!minStart) return null;
+
+        const pos = this.calculatePosition(minStart, maxEnd || minStart, months, monthWidth);
+        if (!pos) return null;
+
+        const bar = document.createElement('div');
+        bar.style.cssText = `
+            position: absolute;
+            left: ${pos.left}px;
+            width: ${Math.max(pos.width, 8)}px;
+            height: ${this.config.barHeight + 4}px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: linear-gradient(135deg, ${row.color} 0%, ${this.darkenColor(row.color, 20)} 100%);
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            overflow: hidden;
+        `;
+
+        // Add label
+        if (pos.width > 80) {
+            const label = document.createElement('span');
+            label.style.cssText = `
+                font-size: 12px;
+                font-weight: 600;
+                color: white;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+            `;
+            label.textContent = row.name;
+            bar.appendChild(label);
+        }
+
+        return bar;
+    },
+
+    /**
+     * Create bar for phase
+     */
+    createPhaseBar(row, months, monthWidth) {
+        const pos = this.calculatePosition(row.startDate, row.endDate, months, monthWidth);
+        if (!pos) return null;
+
+        const colors = {
+            'pre-prod': '#3b82f6',
+            'key-date': '#f59e0b',
+            'post-prod': '#10b981'
+        };
+
+        const bar = document.createElement('div');
+        bar.style.cssText = `
+            position: absolute;
+            left: ${pos.left}px;
+            width: ${Math.max(pos.width, 6)}px;
+            height: ${this.config.subBarHeight}px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: ${colors[row.phaseType] || '#6366f1'};
+            border-radius: 3px;
+            opacity: 0.9;
+        `;
+
+        bar.title = `${row.name}: ${this.formatDate(row.startDate)} - ${this.formatDate(row.endDate)}`;
+
+        return bar;
+    },
+
+    /**
+     * Calculate position for a bar
+     */
+    calculatePosition(startDate, endDate, months, monthWidth) {
         if (!startDate) return null;
 
         const startMonth = startDate.getMonth();
@@ -584,67 +603,107 @@ const GanttChart = {
         const endMonth = endDate ? endDate.getMonth() : startMonth;
         const endDay = endDate ? endDate.getDate() : startDay;
 
-        // Calculate x position
         const daysInStartMonth = new Date(this.config.year, startMonth + 1, 0).getDate();
         const startOffset = ((startDay - 1) / daysInStartMonth) * monthWidth;
-        const x = this.config.labelWidth + (startMonth * monthWidth) + startOffset;
+        const left = (startMonth * monthWidth) + startOffset;
 
-        // Calculate width
         let width;
         if (startMonth === endMonth) {
             const daysDiff = endDay - startDay + 1;
             width = (daysDiff / daysInStartMonth) * monthWidth;
         } else {
-            // Spans multiple months
             const daysInEndMonth = new Date(this.config.year, endMonth + 1, 0).getDate();
             const remainingStartDays = daysInStartMonth - startDay + 1;
             const fullMonths = endMonth - startMonth - 1;
-
             width = (remainingStartDays / daysInStartMonth) * monthWidth +
                 (fullMonths * monthWidth) +
                 (endDay / daysInEndMonth) * monthWidth;
         }
 
-        return { x, width: Math.max(width, 4) };
+        return { left, width: Math.max(width, 4) };
     },
 
     /**
-     * Render today line
+     * Get phases for a project
      */
-    renderTodayLine(months, monthWidth) {
+    getProjectPhases(project) {
+        const phases = [];
+        if (!project.startDate) return phases;
+
+        const duration = project.endDate ?
+            (project.endDate - project.startDate) / (1000 * 60 * 60 * 24) : 30;
+
+        // Pre-production
+        const preEnd = new Date(project.startDate);
+        preEnd.setDate(preEnd.getDate() + Math.floor(duration * 0.3));
+        phases.push({
+            name: 'Pre-producción',
+            phaseType: 'pre-prod',
+            startDate: new Date(project.startDate),
+            endDate: preEnd
+        });
+
+        // Key date
+        if (project.confirmedDate) {
+            phases.push({
+                name: 'Key Date',
+                phaseType: 'key-date',
+                startDate: project.confirmedDate,
+                endDate: project.confirmedDate
+            });
+        }
+
+        // Post-production
+        if (project.endDate) {
+            const postStart = new Date(project.endDate);
+            postStart.setDate(postStart.getDate() - Math.floor(duration * 0.3));
+            phases.push({
+                name: 'Post-producción',
+                phaseType: 'post-prod',
+                startDate: postStart,
+                endDate: project.endDate
+            });
+        }
+
+        return phases;
+    },
+
+    /**
+     * Add today marker
+     */
+    addTodayMarker(wrapper, months, monthWidth) {
         const today = new Date();
         if (today.getFullYear() !== this.config.year) return;
 
         const month = today.getMonth();
         const day = today.getDate();
         const daysInMonth = new Date(this.config.year, month + 1, 0).getDate();
+        const left = this.config.labelWidth + (month * monthWidth) + ((day / daysInMonth) * monthWidth);
 
-        const x = this.config.labelWidth + (month * monthWidth) + ((day / daysInMonth) * monthWidth);
+        const marker = document.createElement('div');
+        marker.style.cssText = `
+            position: absolute;
+            left: ${left}px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #ef4444;
+            z-index: 5;
+            pointer-events: none;
+        `;
 
-        this.svg.append('line')
-            .attr('x1', x)
-            .attr('y1', 0)
-            .attr('x2', x)
-            .attr('y2', '100%')
-            .attr('stroke', '#ef4444')
-            .attr('stroke-width', 2)
-            .attr('stroke-dasharray', '4,4');
+        // Dashed line effect
+        marker.style.background = 'repeating-linear-gradient(to bottom, #ef4444 0, #ef4444 4px, transparent 4px, transparent 8px)';
 
-        // Today marker
-        this.svg.append('circle')
-            .attr('cx', x)
-            .attr('cy', this.config.rowHeight / 2)
-            .attr('r', 6)
-            .attr('fill', '#ef4444');
+        wrapper.appendChild(marker);
     },
 
     /**
-     * Show project details in panel
+     * Show project details
      */
     showProjectDetails(project) {
         const panel = document.getElementById('detailPanel');
         const content = document.getElementById('panelContent');
-
         if (!panel || !content) return;
 
         content.innerHTML = `
@@ -652,17 +711,14 @@ const GanttChart = {
                 <h4>Proyecto</h4>
                 <div class="detail-value">${project.name || 'Sin nombre'}</div>
             </div>
-
             <div class="detail-section">
                 <h4>Cliente</h4>
                 <div class="detail-value">${project.client || 'Sin cliente'}</div>
             </div>
-
             <div class="detail-section">
                 <h4>Tipo</h4>
                 <div class="detail-value">${project.type || 'Sin tipo'}</div>
             </div>
-
             <div class="detail-section">
                 <h4>Fechas</h4>
                 <div class="detail-value">
@@ -671,65 +727,21 @@ const GanttChart = {
                 <div class="detail-value">
                     <span class="detail-label">Fin:</span> ${this.formatDate(project.endDate) || 'No definida'}
                 </div>
-                ${project.confirmedDate ? `
-                <div class="detail-value">
-                    <span class="detail-label">Confirmada:</span> ${this.formatDate(project.confirmedDate)}
-                </div>
-                ` : ''}
             </div>
-
             <div class="detail-section">
                 <h4>Equipos Asignados</h4>
                 <div class="team-badges">
-                    ${project.teams.length > 0 ?
-                project.teams.map(team => `<span class="team-badge">${team}</span>`).join('') :
-                '<span class="detail-value">Sin equipos asignados</span>'
-            }
+                    ${project.teams && project.teams.length > 0 ?
+                        project.teams.map(team => `<span class="team-badge">${team}</span>`).join('') :
+                        '<span class="detail-value">Sin equipos asignados</span>'
+                    }
                 </div>
             </div>
-
             ${project.tasks ? `
             <div class="detail-section">
                 <h4>Tareas</h4>
                 <div class="detail-value">${project.tasks}</div>
-            </div>
-            ` : ''}
-
-            ${project.clickUpLink ? `
-            <div class="detail-section">
-                <h4>ClickUp</h4>
-                <a href="${project.clickUpLink}" target="_blank" class="detail-value" style="color: #818cf8; text-decoration: underline;">
-                    Ver en ClickUp
-                </a>
-            </div>
-            ` : ''}
-
-            <div class="detail-section">
-                <h4>Fases del Proyecto</h4>
-                <div class="phase-timeline">
-                    <div class="phase-item">
-                        <span class="phase-indicator pre-prod"></span>
-                        <div class="phase-info">
-                            <div class="phase-name">Pre-producción</div>
-                            <div class="phase-dates">Planificación y preparación</div>
-                        </div>
-                    </div>
-                    <div class="phase-item">
-                        <span class="phase-indicator key-date"></span>
-                        <div class="phase-info">
-                            <div class="phase-name">Key Date</div>
-                            <div class="phase-dates">Evento o entrega principal</div>
-                        </div>
-                    </div>
-                    <div class="phase-item">
-                        <span class="phase-indicator post-prod"></span>
-                        <div class="phase-info">
-                            <div class="phase-name">Post-producción</div>
-                            <div class="phase-dates">Seguimiento y cierre</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            </div>` : ''}
         `;
 
         panel.classList.add('open');
@@ -749,10 +761,26 @@ const GanttChart = {
     },
 
     /**
-     * Truncate text
+     * Lighten a color
      */
-    truncateText(text, maxLength) {
-        if (!text) return '';
-        return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+    lightenColor(color, percent) {
+        const num = parseInt(color.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.min(255, (num >> 16) + amt);
+        const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+        const B = Math.min(255, (num & 0x0000FF) + amt);
+        return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+    },
+
+    /**
+     * Darken a color
+     */
+    darkenColor(color, percent) {
+        const num = parseInt(color.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.max(0, (num >> 16) - amt);
+        const G = Math.max(0, ((num >> 8) & 0x00FF) - amt);
+        const B = Math.max(0, (num & 0x0000FF) - amt);
+        return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
     }
 };

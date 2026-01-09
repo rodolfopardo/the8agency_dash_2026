@@ -325,6 +325,7 @@ const Charts = {
      * Update all charts with filtered data
      */
     updateWithFilters(filters = {}) {
+        console.log('Applying filters:', filters);
         this.currentFilters = filters;
 
         // Update workload chart with filters
