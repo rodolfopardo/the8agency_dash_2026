@@ -4,17 +4,12 @@
  */
 
 const AuthSystem = {
-    // Predefined users - MODIFY THESE for your team
+    // Predefined users - The 8 Agency Team (todos con acceso completo)
     users: [
-        { username: 'admin', password: 'admin2026', name: 'Administrador', role: 'Admin', avatar: 'A' },
-        { username: 'mario', password: 'mario2026', name: 'Mario', role: 'Manager', avatar: 'M' },
-        { username: 'content', password: 'content2026', name: 'Equipo Content', role: 'Content', avatar: 'C' },
-        { username: 'design', password: 'design2026', name: 'Equipo Diseño', role: 'Diseño', avatar: 'D' },
-        { username: 'video', password: 'video2026', name: 'Equipo Video', role: 'Video', avatar: 'V' },
-        { username: 'dev', password: 'dev2026', name: 'Equipo Dev', role: 'Dev', avatar: 'D' },
-        { username: 'social', password: 'social2026', name: 'Social Media', role: 'Social', avatar: 'S' },
-        { username: 'strategy', password: 'strategy2026', name: 'Equipo Strategy', role: 'Strategy', avatar: 'S' },
-        { username: 'viewer', password: 'viewer2026', name: 'Visualizador', role: 'Viewer', avatar: 'V' }
+        { username: 'alexis', password: '8agency', name: 'Alexis', role: 'Admin', avatar: 'A' },
+        { username: 'rodolfo', password: '8agency', name: 'Rodolfo', role: 'Admin', avatar: 'R' },
+        { username: 'diego', password: '8agency', name: 'Diego', role: 'Admin', avatar: 'D' },
+        { username: 'luz', password: '8agency', name: 'Luz', role: 'Admin', avatar: 'L' }
     ],
 
     // Session storage key
