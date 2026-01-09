@@ -13,6 +13,7 @@ const GanttChart = {
 
     expandedClients: new Set(),
     zoomLevel: 100,
+    viewMode: 'month', // 'month' or 'quarter'
 
     projectColors: ['#f59e0b', '#22c55e', '#3b82f6', '#ec4899', '#8b5cf6', '#14b8a6', '#f97316', '#06b6d4'],
 
@@ -26,6 +27,21 @@ const GanttChart = {
 
         document.getElementById('zoomIn')?.addEventListener('click', () => this.zoom(10));
         document.getElementById('zoomOut')?.addEventListener('click', () => this.zoom(-10));
+
+        // View toggle (Month/Quarter)
+        this.initViewToggle();
+    },
+
+    initViewToggle() {
+        const buttons = document.querySelectorAll('.view-toggle .btn-view');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                buttons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.viewMode = btn.dataset.view;
+                this.render();
+            });
+        });
     },
 
     zoom(delta) {
@@ -58,9 +74,18 @@ const GanttChart = {
         if (!this.container || !this.filteredData) return;
         this.container.innerHTML = '';
 
-        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        const monthWidth = (80 * this.zoomLevel) / 100;
-        const totalWidth = this.config.labelWidth + (months.length * monthWidth);
+        // Define columns based on view mode
+        const isQuarterView = this.viewMode === 'quarter';
+        const columns = isQuarterView
+            ? ['Q1', 'Q2', 'Q3', 'Q4']
+            : ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+        const baseWidth = isQuarterView ? 200 : 80;
+        const columnWidth = (baseWidth * this.zoomLevel) / 100;
+        const totalWidth = this.config.labelWidth + (columns.length * columnWidth);
+
+        // For calculations, we still need month width
+        const monthWidth = isQuarterView ? columnWidth / 3 : columnWidth;
 
         const wrapper = document.createElement('div');
         wrapper.className = 'gantt-wrapper';
@@ -79,12 +104,14 @@ const GanttChart = {
         headerTimeline.style.cssText = 'display: flex; flex: 1;';
 
         const currentMonth = new Date().getMonth();
-        months.forEach((month, i) => {
-            const monthEl = document.createElement('div');
-            const isCurrent = i === currentMonth;
-            monthEl.style.cssText = `width: ${monthWidth}px; min-width: ${monthWidth}px; padding: 12px 4px; text-align: center; font-size: 12px; font-weight: 500; color: ${isCurrent ? '#818cf8' : '#94a3b8'}; border-right: 1px solid #475569; background: ${isCurrent ? 'rgba(99, 102, 241, 0.15)' : 'transparent'};`;
-            monthEl.textContent = month;
-            headerTimeline.appendChild(monthEl);
+        const currentQuarter = Math.floor(currentMonth / 3);
+
+        columns.forEach((col, i) => {
+            const colEl = document.createElement('div');
+            const isCurrent = isQuarterView ? (i === currentQuarter) : (i === currentMonth);
+            colEl.style.cssText = `width: ${columnWidth}px; min-width: ${columnWidth}px; padding: 12px 4px; text-align: center; font-size: ${isQuarterView ? '14px' : '12px'}; font-weight: ${isQuarterView ? '600' : '500'}; color: ${isCurrent ? '#818cf8' : '#94a3b8'}; border-right: 1px solid #475569; background: ${isCurrent ? 'rgba(99, 102, 241, 0.15)' : 'transparent'};`;
+            colEl.textContent = col;
+            headerTimeline.appendChild(colEl);
         });
         header.appendChild(headerTimeline);
         wrapper.appendChild(header);
@@ -99,14 +126,14 @@ const GanttChart = {
             colorIndex++;
 
             // Client row
-            const clientRow = this.createRow(client, 'client', clientColor, projects.length, months, monthWidth, projects);
+            const clientRow = this.createRow(client, 'client', clientColor, projects.length, columns, columnWidth, monthWidth, projects);
             body.appendChild(clientRow);
 
             // Project rows if expanded
             if (this.expandedClients.has(client)) {
                 projects.forEach((project, pIndex) => {
                     const projectColor = this.adjustColor(clientColor, pIndex * 15);
-                    const projectRow = this.createRow(project.name, 'project', projectColor, 0, months, monthWidth, null, project);
+                    const projectRow = this.createRow(project.name, 'project', projectColor, 0, columns, columnWidth, monthWidth, null, project);
                     body.appendChild(projectRow);
                 });
             }
@@ -120,9 +147,13 @@ const GanttChart = {
         this.container.appendChild(wrapper);
     },
 
-    createRow(name, type, color, count, months, monthWidth, clientProjects, project) {
+    createRow(name, type, color, count, columns, columnWidth, monthWidth, clientProjects, project) {
         const row = document.createElement('div');
         row.style.cssText = `display: flex; border-bottom: 1px solid #334155; min-height: ${this.config.rowHeight}px; background: ${type === 'client' ? '#1e293b' : '#0f172a'};`;
+
+        const isQuarterView = this.viewMode === 'quarter';
+        const currentMonth = new Date().getMonth();
+        const currentQuarter = Math.floor(currentMonth / 3);
 
         // Label
         const label = document.createElement('div');
@@ -172,10 +203,10 @@ const GanttChart = {
         timeline.style.cssText = 'flex: 1; position: relative; display: flex;';
 
         // Grid
-        months.forEach((_, i) => {
+        columns.forEach((_, i) => {
             const gridCell = document.createElement('div');
-            const isCurrent = i === new Date().getMonth();
-            gridCell.style.cssText = `width: ${monthWidth}px; min-width: ${monthWidth}px; border-right: 1px solid #334155; background: ${isCurrent ? 'rgba(99, 102, 241, 0.05)' : 'transparent'};`;
+            const isCurrent = isQuarterView ? (i === currentQuarter) : (i === currentMonth);
+            gridCell.style.cssText = `width: ${columnWidth}px; min-width: ${columnWidth}px; border-right: 1px solid #334155; background: ${isCurrent ? 'rgba(99, 102, 241, 0.05)' : 'transparent'};`;
             timeline.appendChild(gridCell);
         });
 
