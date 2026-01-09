@@ -178,11 +178,12 @@ const App = {
         const filterClient = document.getElementById('filterClient');
         const filterTeam = document.getElementById('filterTeam');
         const filterType = document.getElementById('filterType');
+        const filterPhase = document.getElementById('filterPhase');
         const filterMonth = document.getElementById('filterMonth');
         const clearBtn = document.getElementById('clearFilters');
 
         // Add change listeners
-        [filterClient, filterTeam, filterType, filterMonth].forEach(select => {
+        [filterClient, filterTeam, filterType, filterPhase, filterMonth].forEach(select => {
             if (select) {
                 select.addEventListener('change', () => this.applyFilters());
             }
@@ -243,6 +244,7 @@ const App = {
             client: document.getElementById('filterClient')?.value || '',
             team: document.getElementById('filterTeam')?.value || '',
             type: document.getElementById('filterType')?.value || '',
+            phase: document.getElementById('filterPhase')?.value || '',
             month: document.getElementById('filterMonth')?.value || ''
         };
 
@@ -260,9 +262,10 @@ const App = {
         document.getElementById('filterClient').value = '';
         document.getElementById('filterTeam').value = '';
         document.getElementById('filterType').value = '';
+        document.getElementById('filterPhase').value = '';
         document.getElementById('filterMonth').value = '';
 
-        this.filters = { client: '', team: '', type: '', month: '' };
+        this.filters = { client: '', team: '', type: '', phase: '', month: '' };
 
         // Reset visualizations
         GanttChart.filter({});

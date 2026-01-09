@@ -112,6 +112,17 @@
                 </select>
             </div>
             <div class="filter-group">
+                <label for="filterPhase">Fase</label>
+                <select id="filterPhase">
+                    <option value="">Todas</option>
+                    <option value="Pre-production">Pre-producción</option>
+                    <option value="Key Date">Key Date</option>
+                    <option value="Post - Loss">Post-producción</option>
+                    <option value="Production">Producción</option>
+                    <option value="Planning">Planning</option>
+                </select>
+            </div>
+            <div class="filter-group">
                 <label for="filterMonth">Mes</label>
                 <select id="filterMonth">
                     <option value="">Todo el año</option>
@@ -174,10 +185,10 @@
                 <div class="section-header">
                     <h2>Carga de Trabajo por Equipo</h2>
                     <div class="section-controls">
-                        <select id="workloadPeriod">
-                            <option value="month">Por Mes</option>
-                            <option value="week">Por Semana</option>
-                        </select>
+                        <div class="view-toggle workload-toggle">
+                            <button class="btn-view active" data-period="month">Mes</button>
+                            <button class="btn-view" data-period="quarter">Quarter</button>
+                        </div>
                     </div>
                 </div>
                 <div class="chart-container">

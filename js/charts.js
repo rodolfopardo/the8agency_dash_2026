@@ -6,6 +6,7 @@
 const Charts = {
     workloadChart: null,
     currentFilters: {},
+    workloadViewMode: 'month', // 'month' or 'quarter'
 
     teamColors: {
         'Content': '#6366f1',
@@ -19,12 +20,16 @@ const Charts = {
     },
 
     init() {
-        const periodSelector = document.getElementById('workloadPeriod');
-        if (periodSelector) {
-            periodSelector.addEventListener('change', () => {
+        // Workload period toggle (Month/Quarter)
+        const buttons = document.querySelectorAll('.workload-toggle .btn-view');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                buttons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.workloadViewMode = btn.dataset.period;
                 this.createWorkloadChart(this.currentFilters);
             });
-        }
+        });
     },
 
     createWorkloadChart(filters = {}) {
@@ -32,7 +37,7 @@ const Charts = {
         if (!ctx) return;
 
         this.currentFilters = filters;
-        const workloadData = DataManager.getWorkloadData(filters);
+        const workloadData = DataManager.getWorkloadData(filters, this.workloadViewMode);
 
         if (this.workloadChart) {
             this.workloadChart.destroy();

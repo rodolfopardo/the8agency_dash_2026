@@ -276,6 +276,9 @@ const DataManager = {
         if (filters.type) {
             filtered = filtered.filter(p => p.type === filters.type);
         }
+        if (filters.phase) {
+            filtered = filtered.filter(p => p.phase === filters.phase);
+        }
         if (filters.month) {
             const month = parseInt(filters.month);
             filtered = filtered.filter(p => {
@@ -289,8 +292,12 @@ const DataManager = {
         return filtered;
     },
 
-    getWorkloadData(filters = {}) {
-        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    getWorkloadData(filters = {}, viewMode = 'month') {
+        const isQuarter = viewMode === 'quarter';
+        const labels = isQuarter
+            ? ['Q1', 'Q2', 'Q3', 'Q4']
+            : ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
         const filtered = this.filterProjects(filters);
 
         // Determine which teams to show
@@ -299,25 +306,41 @@ const DataManager = {
         if (filters.team) teamsToShow = new Set([filters.team]);
         if (teamsToShow.size === 0) teamsToShow = new Set(this.teams);
 
+        const periodCount = isQuarter ? 4 : 12;
         const workload = {};
         teamsToShow.forEach(team => {
-            workload[team] = new Array(12).fill(0);
+            workload[team] = new Array(periodCount).fill(0);
         });
 
         filtered.forEach(project => {
             if (!project.startDate) return;
-            const startMonth = project.startDate.getMonth();
-            const endMonth = project.endDate ? project.endDate.getMonth() : startMonth;
 
-            project.teams.forEach(team => {
-                if (!workload[team]) return;
-                for (let m = startMonth; m <= endMonth; m++) {
-                    workload[team][m]++;
-                }
-            });
+            if (isQuarter) {
+                // Quarter view: count project in each quarter it spans
+                const startQuarter = Math.floor(project.startDate.getMonth() / 3);
+                const endQuarter = project.endDate ? Math.floor(project.endDate.getMonth() / 3) : startQuarter;
+
+                project.teams.forEach(team => {
+                    if (!workload[team]) return;
+                    for (let q = startQuarter; q <= endQuarter; q++) {
+                        workload[team][q]++;
+                    }
+                });
+            } else {
+                // Month view: count project in each month it spans
+                const startMonth = project.startDate.getMonth();
+                const endMonth = project.endDate ? project.endDate.getMonth() : startMonth;
+
+                project.teams.forEach(team => {
+                    if (!workload[team]) return;
+                    for (let m = startMonth; m <= endMonth; m++) {
+                        workload[team][m]++;
+                    }
+                });
+            }
         });
 
-        return { labels: months, teams: workload };
+        return { labels: labels, teams: workload };
     },
 
     getHeatmapData(filters = {}) {
