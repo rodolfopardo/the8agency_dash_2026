@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - 8Agency 2026</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body class="dashboard-page">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-small">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <rect width="40" height="40" rx="10" fill="url(#grad2)"/>
+                    <text x="20" y="26" text-anchor="middle" fill="white" font-size="18" font-weight="700" font-family="Inter">8</text>
+                    <defs>
+                        <linearGradient id="grad2" x1="0" y1="0" x2="40" y2="40">
+                            <stop offset="0%" stop-color="#6366f1"/>
+                            <stop offset="100%" stop-color="#8b5cf6"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <span class="logo-text">8Agency</span>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#gantt" class="nav-item active" data-section="gantt">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="4" rx="1"/>
+                    <rect x="3" y="10" width="12" height="4" rx="1"/>
+                    <rect x="3" y="16" width="15" height="4" rx="1"/>
+                </svg>
+                <span>Gantt</span>
+            </a>
+            <a href="#workload" class="nav-item" data-section="workload">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="12" width="4" height="8" rx="1"/>
+                    <rect x="10" y="8" width="4" height="12" rx="1"/>
+                    <rect x="17" y="4" width="4" height="16" rx="1"/>
+                </svg>
+                <span>Carga de Trabajo</span>
+            </a>
+            <a href="#heatmap" class="nav-item" data-section="heatmap">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+                <span>Heatmap</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-details">
+                    <span class="user-name" id="userName">Usuario</span>
+                    <span class="user-role" id="userRole">Rol</span>
+                </div>
+            </div>
+            <button class="btn-logout" id="logoutBtn" title="Cerrar sesión">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="main-header">
+            <button class="menu-toggle" id="menuToggle">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
+            <div class="header-title">
+                <h1 id="sectionTitle">Timeline de Proyectos</h1>
+                <p class="last-update">Última actualización: <span id="lastUpdate">--</span></p>
+            </div>
+            <div class="header-actions">
+                <button class="btn-refresh" id="refreshBtn" title="Actualizar datos">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6"/>
+                        <path d="M1 20v-6h6"/>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Filters Bar -->
+        <div class="filters-bar">
+            <div class="filter-group">
+                <label for="filterClient">Cliente</label>
+                <select id="filterClient">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filterTeam">Equipo</label>
+                <select id="filterTeam">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filterType">Tipo</label>
+                <select id="filterType">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filterMonth">Mes</label>
+                <select id="filterMonth">
+                    <option value="">Todo el año</option>
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10">Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                </select>
+            </div>
+            <button class="btn-clear-filters" id="clearFilters">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+                Limpiar
+            </button>
+        </div>
+
+        <!-- Dashboard Sections -->
+        <div class="dashboard-sections">
+            <!-- Gantt Section -->
+            <section class="section active" id="ganttSection">
+                <div class="section-header">
+                    <h2>Gantt de Proyectos</h2>
+                    <div class="section-controls">
+                        <div class="zoom-controls">
+                            <button class="btn-zoom" id="zoomOut" title="Alejar">-</button>
+                            <span id="zoomLevel">100%</span>
+                            <button class="btn-zoom" id="zoomIn" title="Acercar">+</button>
+                        </div>
+                        <div class="view-toggle">
+                            <button class="btn-view active" data-view="month">Mes</button>
+                            <button class="btn-view" data-view="week">Semana</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="gantt-legend">
+                    <span class="legend-item"><span class="legend-color pre-prod"></span>Pre-producción</span>
+                    <span class="legend-item"><span class="legend-color key-date"></span>Key Date</span>
+                    <span class="legend-item"><span class="legend-color post-prod"></span>Post-producción</span>
+                </div>
+                <div class="gantt-container" id="ganttChart">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Cargando datos...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Workload Section -->
+            <section class="section" id="workloadSection">
+                <div class="section-header">
+                    <h2>Carga de Trabajo por Equipo</h2>
+                    <div class="section-controls">
+                        <select id="workloadPeriod">
+                            <option value="month">Por Mes</option>
+                            <option value="week">Por Semana</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="workloadChart"></canvas>
+                </div>
+                <div class="workload-summary" id="workloadSummary">
+                    <!-- Summary cards will be inserted here -->
+                </div>
+            </section>
+
+            <!-- Heatmap Section -->
+            <section class="section" id="heatmapSection">
+                <div class="section-header">
+                    <h2>Mapa de Calor - Intensidad de Carga</h2>
+                    <div class="heatmap-scale">
+                        <span>Baja</span>
+                        <div class="scale-gradient"></div>
+                        <span>Alta</span>
+                    </div>
+                </div>
+                <div class="heatmap-container" id="heatmapChart">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                        <p>Cargando datos...</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Detail Panel (slides in from right) -->
+    <aside class="detail-panel" id="detailPanel">
+        <div class="panel-header">
+            <h3>Detalles del Proyecto</h3>
+            <button class="btn-close-panel" id="closePanel">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="panel-content" id="panelContent">
+            <!-- Dynamic content -->
+        </div>
+    </aside>
+
+    <!-- Overlay for mobile -->
+    <div class="overlay" id="overlay"></div>
+
+    <script src="js/auth.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/gantt.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
