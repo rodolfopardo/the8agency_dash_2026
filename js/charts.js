@@ -7,6 +7,9 @@ const Charts = {
     // Chart instances
     workloadChart: null,
 
+    // Current filters
+    currentFilters: {},
+
     // Team colors
     teamColors: {
         'Content': '#6366f1',
@@ -27,7 +30,7 @@ const Charts = {
         const periodSelector = document.getElementById('workloadPeriod');
         if (periodSelector) {
             periodSelector.addEventListener('change', () => {
-                this.updateWorkloadChart();
+                this.updateWorkloadChart(this.currentFilters);
             });
         }
     },
@@ -35,11 +38,12 @@ const Charts = {
     /**
      * Create workload chart (Chart.js - stacked bar)
      */
-    createWorkloadChart(data) {
+    createWorkloadChart(filters = {}) {
         const ctx = document.getElementById('workloadChart');
         if (!ctx) return;
 
-        const workloadData = data || DataManager.getWorkloadData();
+        this.currentFilters = filters;
+        const workloadData = DataManager.getWorkloadData('month', filters);
 
         // Destroy existing chart
         if (this.workloadChart) {
@@ -145,9 +149,8 @@ const Charts = {
     /**
      * Update workload chart
      */
-    updateWorkloadChart() {
-        const workloadData = DataManager.getWorkloadData();
-        this.createWorkloadChart(workloadData);
+    updateWorkloadChart(filters = {}) {
+        this.createWorkloadChart(filters);
     },
 
     /**
@@ -185,14 +188,14 @@ const Charts = {
     /**
      * Create heatmap (D3.js)
      */
-    createHeatmap() {
+    createHeatmap(filters = {}) {
         const container = document.getElementById('heatmapChart');
         if (!container) return;
 
         // Clear container
         container.innerHTML = '';
 
-        const heatmapData = DataManager.getHeatmapData();
+        const heatmapData = DataManager.getHeatmapData(filters);
 
         // Dimensions
         const margin = { top: 30, right: 30, bottom: 60, left: 120 };
@@ -321,11 +324,13 @@ const Charts = {
     /**
      * Update all charts with filtered data
      */
-    updateWithFilters(filters) {
-        // Workload chart updates automatically through DataManager
-        this.updateWorkloadChart();
+    updateWithFilters(filters = {}) {
+        this.currentFilters = filters;
 
-        // Recreate heatmap
-        this.createHeatmap();
+        // Update workload chart with filters
+        this.createWorkloadChart(filters);
+
+        // Recreate heatmap with filters
+        this.createHeatmap(filters);
     }
 };

@@ -69,10 +69,10 @@ const App = {
         // Populate filter dropdowns
         this.populateFilters(data);
 
-        // Render visualizations
+        // Render visualizations with empty filters initially
         GanttChart.setData(data);
-        Charts.createWorkloadChart();
-        Charts.createHeatmap();
+        Charts.createWorkloadChart({});
+        Charts.createHeatmap({});
 
         // Update section title
         this.updateSectionTitle();

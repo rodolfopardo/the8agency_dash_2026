@@ -527,32 +527,50 @@ const DataManager = {
     },
 
     /**
-     * Get workload data by team and period
+     * Get workload data by team and period (with optional filters)
      */
-    getWorkloadData(period = 'month') {
+    getWorkloadData(period = 'month', filters = {}) {
         const workload = {};
 
         // Initialize months
         const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-        this.teams.forEach(team => {
+        // Get filtered projects
+        const filteredProjects = this.filterProjects(filters);
+
+        // Get teams from filtered projects or all teams
+        let teamsToShow = new Set();
+        filteredProjects.forEach(p => p.teams.forEach(t => teamsToShow.add(t)));
+
+        // If filtering by team, only show that team
+        if (filters.team) {
+            teamsToShow = new Set([filters.team]);
+        }
+
+        // If no teams found, use all teams
+        if (teamsToShow.size === 0) {
+            teamsToShow = new Set(this.teams);
+        }
+
+        teamsToShow.forEach(team => {
             workload[team] = new Array(12).fill(0);
         });
 
-        this.projects.forEach(project => {
+        filteredProjects.forEach(project => {
             const startMonth = project.startDate ? project.startDate.getMonth() : null;
             const endMonth = project.endDate ? project.endDate.getMonth() : startMonth;
 
             if (startMonth !== null) {
                 project.teams.forEach(team => {
+                    // Only count if team is in our filtered set
+                    if (!workload[team]) return;
+
                     // Count project for each month it spans
                     const start = startMonth;
                     const end = endMonth !== null ? endMonth : startMonth;
 
                     for (let m = start; m <= end; m++) {
-                        if (workload[team]) {
-                            workload[team][m]++;
-                        }
+                        workload[team][m]++;
                     }
                 });
             }
@@ -565,17 +583,31 @@ const DataManager = {
     },
 
     /**
-     * Get heatmap data
+     * Get heatmap data (with optional filters)
      */
-    getHeatmapData() {
+    getHeatmapData(filters = {}) {
         const heatmap = [];
         const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-        this.teams.forEach((team, teamIndex) => {
+        // Get filtered projects
+        const filteredProjects = this.filterProjects(filters);
+
+        // Get teams to show
+        let teamsToShow = [];
+        if (filters.team) {
+            teamsToShow = [filters.team];
+        } else {
+            // Get unique teams from filtered projects
+            const teamsSet = new Set();
+            filteredProjects.forEach(p => p.teams.forEach(t => teamsSet.add(t)));
+            teamsToShow = teamsSet.size > 0 ? Array.from(teamsSet) : this.teams;
+        }
+
+        teamsToShow.forEach((team, teamIndex) => {
             months.forEach((month, monthIndex) => {
                 let count = 0;
 
-                this.projects.forEach(project => {
+                filteredProjects.forEach(project => {
                     if (!project.teams.includes(team)) return;
 
                     const startMonth = project.startDate ? project.startDate.getMonth() : null;
@@ -600,7 +632,7 @@ const DataManager = {
 
         return {
             data: heatmap,
-            teams: this.teams,
+            teams: teamsToShow,
             months: months,
             maxValue: Math.max(...heatmap.map(h => h.value), 1)
         };
