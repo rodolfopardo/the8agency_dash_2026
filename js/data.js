@@ -171,8 +171,21 @@ const DataManager = {
             const startDateStr = this.getColumnValue(row, ['Fecha de Inicio', 'Fecha Inicio', 'Start Date', 'Inicio', 'FechaInicio']);
             const endDateStr = this.getColumnValue(row, ['Fecha Finalización', 'Fecha Finalizacion', 'Fecha Fin', 'End Date', 'Fin', 'FechaFin']);
 
+            // Debug: log date values for first few projects
+            if (index < 3) {
+                console.log(`Project ${index}: ${projectName}`);
+                console.log(`  Raw start date: "${startDateStr}"`);
+                console.log(`  Raw end date: "${endDateStr}"`);
+            }
+
             const startDate = this.parseDate(startDateStr);
             const endDate = this.parseDate(endDateStr);
+
+            // Debug: log parsing results for first few
+            if (index < 3) {
+                console.log(`  Parsed start: ${startDate}`);
+                console.log(`  Parsed end: ${endDate}`);
+            }
 
             // Debug: log if dates fail to parse
             if (startDateStr && !startDate) {
