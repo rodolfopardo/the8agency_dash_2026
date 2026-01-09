@@ -222,9 +222,9 @@ Este proyecto es privado y de uso interno de 8Agency.
 ---
 
 <p align="center">
-  <strong>8Agency</strong> © 2026
+  <strong>The 8 Agency</strong> © 2026
 </p>
 
 <p align="center">
-  <sub>Built with ❤️ using Claude Code</sub>
+  <sub>Creado por Equipo Data - The 8 Agency</sub>
 </p>
